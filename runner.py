@@ -1,110 +1,59 @@
-import requests
-import json
-from socketio import Client
-import urllib3
-from urllib.parse import urlencode
 from dotenv import load_dotenv
 import os
+from critica_py_lib import Critica
 
-# Load environment variables
-load_dotenv()
+def run_tests():
+    """Run example tests using the Critica library"""
+    load_dotenv()
 
-# Configuration from environment variables
-SERVER_URL = os.getenv('SERVER_URL')
-ACCOUNT_ID = os.getenv('ACCOUNT_ID')
-PROJECT_ID = os.getenv('PROJECT_ID')
+    def handle_response(data):
+        """Handle responses from the server"""
+        print("\nReceived response from server:")
+        print("Message:", data.get('message'))
+        print("Status:", data.get('status'))
+        # Process the response data as needed
+        # You might want to send it to your GPT model here
 
-urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
+    # Initialize client
+    critica = Critica(
+        server_url=os.getenv('SERVER_URL'),
+        account_id=os.getenv('ACCOUNT_ID'),
+        project_id=os.getenv('PROJECT_ID')
+    )
 
-try:
-    # Test #1: Project Registration
-    print("Starting Test #1: Project Registration...")
-    url = f"{SERVER_URL}/accounts/{ACCOUNT_ID}/projects"
-    response = requests.get(url, verify=False)
-    print("Projects Response:", response.json())
-
-    # Add a new project if it doesn't exist
-    project_data = {"project_name": "Project X"}
-    response = requests.post(url, json=project_data, verify=False)
-    print("Project Registration Response:", response.json())
-    print("Test #1 completed.\n")
-
-    # Critica cr = new Critica(API_KEY, "Project A")
-
-    # # Test #2: Chat Approval
-    print("Starting Test #2: Chat Approval...")
-    url = f"{SERVER_URL}/chat_is_approved/{ACCOUNT_ID}/{PROJECT_ID}"
-    response = requests.get(url, verify=False)
-    print("Chat Approval Response:", response.json())
-    print("Test #2 completed.\n")
-
-    # cr.is_approved(); -> true or false
-
-    # # Test #3: Socket.IO Testing
-    print("Starting Test #3: Socket.IO test...")
-    sio = Client()
-
-    @sio.on('connect')
-    def on_connect():
-        print('Socket.IO Connected!')
-
-    @sio.on('disconnect')
-    def on_disconnect():
-        print('Socket.IO Disconnected!')
-
-    @sio.on('response')
-    def on_response(data):
-        print('Received response:', data)
-
-    @sio.on('connect_error')
-    def on_connect_error(data):
-        print('Connection Error:', data)
+    # Set up the response handler
+    critica.set_response_handler(handle_response)
 
     try:
-        # Connect to the Socket.IO server with query parameters in the URL
-        base_url = SERVER_URL
-        account_id = ACCOUNT_ID
-        project_id = PROJECT_ID
+        # Test #1: Project Registration
+        print("\nTest #1: Project Registration")
+        response = critica.register_project("Project X")
+        print("Project Registration Response:", response)
 
-        # URL encode the parameters properly
-        query_params = urlencode({'account_id': account_id, 'project_id': project_id})
-        url = f'{base_url}?{query_params}'
+        # Test #2: Chat Approval
+        print("\nTest #2: Chat Approval")
+        is_approved = critica.is_approved()
+        print("Chat Approved:", is_approved)
 
-        sio.connect(url,
-                   wait_timeout=10,
-                   transports=['websocket'])
+        # Test #3: Socket.IO Testing
+        print("\nTest #3: Socket.IO Testing")
+        critica.connect_socket()
 
+        # Interactive message testing
         try:
             while True:
-                message = input("Enter message (or 'quit' to exit): ")
+                message = input("\nEnter message (or 'quit' to exit): ")
                 if message.lower() == 'quit':
                     break
-
-                test_message = {
-                    'account_id': ACCOUNT_ID,
-                    'project_id': PROJECT_ID,
-                    'message': message
-                }
-                sio.emit('message', test_message)
+                critica.send_message(message)
 
         except KeyboardInterrupt:
             print("\nExiting...")
         finally:
-            sio.disconnect()
-            print("Socket.IO test completed.\n")
+            critica.disconnect_socket()
 
     except Exception as e:
-        print("Socket.IO Connection Error:", str(e))
+        print("Error:", str(e))
 
-    # output is not a string, it's a dict
-    # def test(input):
-    #     output = cr.pipe(input)
-    #     test(gpt_response(output))
-
-
-    # text_field(keyboard_controller) ->
-    # text_field(cr.pipe(gpt_response_maker()))
-
-
-except Exception as e:
-    print("Error occurred:", str(e))
+if __name__ == "__main__":
+    run_tests()
